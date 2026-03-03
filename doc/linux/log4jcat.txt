@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# log4jcat - colorize Log4j-style plain text logs using awk (no extra installs)
+# log4jcat - colorize Log4j-style plain text logs (no installs)
 # Usage:
 #   log4jcat file.log
-#   kubectl logs -f pod | log4jcat
+#   cat file.log | log4jcat
 #   log4jcat file.log | less -R
 
 awk '
@@ -24,13 +24,14 @@ BEGIN {
 {
   line = $0
 
-  # Gray stack traces + continuation lines
-  if (line ~ /^[[:space:]]+at[[:space:]]/ || line ~ /^[[:space:]]*\.\.\.[[:space:]]+[0-9]+[[:space:]]+more[[:space:]]*$/) {
+  # Stack traces / continuations
+  if (line ~ /^[[:space:]]+at[[:space:]]/ ||
+      line ~ /^[[:space:]]*\.\.\.[[:space:]]+[0-9]+[[:space:]]+more[[:space:]]*$/) {
     print dim line reset
     next
   }
 
-  # Strong "Caused by" / "Suppressed"
+  # "Caused by" / "Suppressed"
   if (line ~ /^[[:space:]]*Caused by:/) {
     print bred line reset
     next
@@ -40,35 +41,24 @@ BEGIN {
     next
   }
 
-  # Timestamp at beginning (common log4j / log4j2)
-  # 2026-03-03 10:01:22,123  OR  2026-03-03T10:01:22.123Z
+  # Timestamp at beginning (common log4j/log4j2 patterns)
   if (match(line, /^([0-9]{4}-[0-9]{2}-[0-9]{2})([ T])([0-9]{2}:[0-9]{2}:[0-9]{2})([,.][0-9]+)?([Z]|[+-][0-9]{2}:[0-9]{2})?/, m)) {
     ts = m[0]
     sub(ts, dim ts reset, line)
   }
 
-  # Log levels
+  # Levels
   gsub(/\bFATAL\b/, bred "FATAL" reset, line)
   gsub(/\bERROR\b/, red  "ERROR" reset, line)
-  gsub(/\bWARN(ING)?\b/, yel "&" reset, line)
+  gsub(/\bWARN(ING)?\b/, yel  "&"   reset, line)
   gsub(/\bINFO\b/,  grn  "INFO" reset, line)
   gsub(/\bDEBUG\b/, cyn  "DEBUG" reset, line)
   gsub(/\bTRACE\b/, mag  "TRACE" reset, line)
 
-  # Thread in [ ... ]
-  # (color all bracketed groups — usually thread; if you have MDC too, it’ll color those as well)
-  while (match(line, /\[[^]]+\]/)) {
-    seg = substr(line, RSTART, RLENGTH)
-    pre = substr(line, 1, RSTART-1)
-    post= substr(line, RSTART+RLENGTH)
-    line = pre blu seg reset post
-  }
+  # Thread-like [ ... ] (single-pass; no infinite loop)
+  gsub(/\[[^]]+\]/, blu "&" reset, line)
 
-  # Java-ish logger tokens (package.Class...) - heuristic
-  # color tokens with at least 2 dots to avoid coloring simple words.
-  n = split(line, parts, /([[:space:]]+)/, seps)
-  # awk split with separators is messy across versions; keep it simple:
-  # do a regex replace for long dotted identifiers:
+  # Logger-ish package.Class tokens (heuristic)
   gsub(/\b[A-Za-z_][A-Za-z0-9_$]*\.[A-Za-z0-9_$]+\.[A-Za-z0-9_$.]*[A-Za-z0-9_$]\b/, bblu "&" reset, line)
 
   print line
