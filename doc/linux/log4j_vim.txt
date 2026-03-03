@@ -1,0 +1,108 @@
+Log4j log syntax highlighting for VIM
+=====================================
+
+1. file type detection
+
+~/.vim/ftdetect/log4j.vim
+
+" Detect log4j-ish logs by extension (adjust as you like)
+au BufRead,BufNewFile *.log4j,*.log,*.out,*.server.log set filetype=log4j
+
+If you don’t want *.log globally (since lots of non-log4j logs use it), use a narrower set like *.server.log / catalina.*.log etc.
+
+2. Syntax highlighting rules
+
+~/.vim/syntax/log4j.vim
+
+if exists("b:current_syntax")
+  finish
+endif
+
+syntax case match
+
+" --- Timestamp formats (common log4j/log4j2 patterns) ---
+" 2026-03-03 10:01:22,123
+syntax match log4jTimestamp /^\d\{4}-\d\{2}-\d\{2}\s\+\d\{2}:\d\{2}:\d\{2}[,\.]\d\+/
+" 2026-03-03T10:01:22.123Z (ISO-ish)
+syntax match log4jTimestamp /^\d\{4}-\d\{2}-\d\{2}T\d\{2}:\d\{2}:\d\{2}[,\.]\d\+\(Z\|[+-]\d\{2}:\d\{2}\)\?/
+
+" --- Levels ---
+syntax match log4jLevelError /\v<ERROR|FATAL>/
+syntax match log4jLevelWarn  /\v<WARN|WARNING>/
+syntax match log4jLevelInfo  /\v<INFO>/
+syntax match log4jLevelDebug /\v<DEBUG>/
+syntax match log4jLevelTrace /\v<TRACE>/
+
+" --- Thread name in [brackets] (very common: [%t]) ---
+syntax match log4jThread /\v\[[^]]+\]/
+
+" --- Logger / class name (common: %c or %logger) ---
+" Heuristic: java-ish package.Class tokens
+syntax match log4jLogger /\v<[a-zA-Z_][\w$]*\.(\w+\.?)+>/
+
+" --- Separator before message (common: " - " or " : ") ---
+syntax match log4jSep /\v\s(-|:)\s/
+
+" --- MDC/NDC style key=value tokens (if present) ---
+syntax match log4jKV /\v<\w+>=("[^"]*"|'[^']*'|[^\s,]+)/
+syntax match log4jKV /\v<\w+>:\s*("[^"]*"|'[^']*'|[^\s,]+)/
+
+" --- Exceptions & common keywords ---
+syntax match log4jException /\v<\w+(Exception|Error)>/
+syntax match log4jCausedBy /^\s*Caused by:.\+/
+syntax match log4jSuppressed /^\s*Suppressed:.\+/
+
+" --- Stack trace lines (Java) ---
+syntax match log4jStackTrace /^\s\+at\s\+.\+/
+syntax match log4jStackTrace /^\s\+\.\.\.\s\+\d\+\s\+more\s*$/
+
+" --- "First line" / header emphasis (timestamp + level on same line) ---
+syntax match log4jHeader /^\_.\{-}\v<ERROR|FATAL|WARN|WARNING|INFO|DEBUG|TRACE>/
+
+" ----------------- Highlight groups -----------------
+highlight default link log4jTimestamp Comment
+highlight default link log4jThread    Identifier
+highlight default link log4jLogger    Type
+highlight default link log4jSep       Delimiter
+
+highlight default link log4jLevelError ErrorMsg
+highlight default link log4jLevelWarn  WarningMsg
+highlight default link log4jLevelInfo  String
+highlight default link log4jLevelDebug Special
+highlight default link log4jLevelTrace SpecialComment
+
+highlight default link log4jKV         Constant
+highlight default link log4jException  Exception
+highlight default link log4jCausedBy   PreProc
+highlight default link log4jSuppressed PreProc
+highlight default link log4jStackTrace Comment
+highlight default link log4jHeader     Underlined
+
+let b:current_syntax = "log4j"
+
+3. Filetype plugin (viewing defaults for logs)
+
+~/.vim/ftplugin/log4j.vim
+
+" Better log viewing
+setlocal nowrap
+setlocal nofoldenable
+setlocal nospell
+setlocal number
+setlocal relativenumber
+setlocal signcolumn=no
+setlocal cursorline
+setlocal scrolloff=3
+
+" Searching in logs
+setlocal ignorecase
+setlocal smartcase
+
+4. Make sure syntax is enabled
+~/.vimrc
+
+syntax on
+filetype plugin indent on
+
+
+
